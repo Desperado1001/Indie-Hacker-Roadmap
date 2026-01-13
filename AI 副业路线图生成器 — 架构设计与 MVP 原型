@@ -1,0 +1,90 @@
+
+项目概述
+本项目旨在构建一款面向独立开发者和自由职业者的“AI 副业路线图生成器”。用户通过填写技能、兴趣、时间和资金预算等信息，系统利用大型语言模型（LLM）自动生成 6–12 个月的副业项目路线图，包括项目建议、MVP 功能、推广策略和预期收入。该服务以 SaaS 形式提供，通过免费试用和订阅付费模式来变现。
+技术栈选择
+为了快速迭代且便于维护，选用以下技术栈：
+前端：Next.js (React + TypeScript) —— 提供现代化的 SSR/CSR 混合渲染，提高首屏速度，便于 SEO；TypeScript 增强类型安全。
+样式与 UI：Tailwind CSS + shadcn/ui —— Tailwind 用于快速构建响应式界面，shadcn/ui 提供美观的预制组件。
+后端：Node.js (Next.js API Routes) 或 Python FastAPI —— 如果希望前后端统一，可用 Next.js 内置 API Routes；若对 Python 生态更熟悉，则选 FastAPI。
+数据库：PostgreSQL (推荐 Supabase) —— 用于存储用户账户、路线图记录和订阅信息。Supabase 提供托管 Postgres 和简单的鉴权服务。
+AI 服务：OpenAI/Claude/Gemini API —— 用于生成路线图文本；模型 API 通过后端调用，使用环境变量安全存储密钥。
+邮件/消息推送：SendGrid 或 Telegram Bot —— 向用户发送生成结果或订阅提醒。
+部署与托管：Vercel —— 对于 Next.js 项目，Vercel 支持一键部署；若使用 FastAPI，可选 Render 或 Railway。
+选择这些技术的原因在于可迅速搭建原型，并且结合 AI 工具可大幅压缩市场调研与原型设计时间[1]。
+系统架构设计
+系统按前后端分层：
+1.前端应用（Next.js）
+2.负责用户界面展示，包括 Landing Page、问卷输入页、结果展示页和个人中心。
+3.通过 API 调用后端生成路线图，处理用户登录和订阅操作。
+4.使用 NextAuth 或 Supabase Auth 处理身份认证。
+5.后端服务
+6.暴露 REST API（或 GraphQL）接口，如 POST /api/roadmap 用于生成路线图、GET /api/roadmap/{id} 获取历史记录、POST /api/subscribe 用于订阅。
+7.集成 LLM API：根据用户输入拼接 prompt 调用 OpenAI/Claude 等模型，返回结构化结果。参考 AI MVP 开发指南，MVP 应聚焦一个核心功能，并可采用半自动或人工校对策略以保证质量[2]。
+8.访问数据库存储用户和路线图；采用 Prisma ORM（Node.js）或 SQLAlchemy（Python）简化数据库操作。
+9.处理付款集成（Stripe/支付宝/微信支付），实现订阅计费。
+10.AI 处理模块
+11.定义统一的提示模板，包括输入用户信息、项目领域和期望目标等。
+12.调用 LLM 前先根据用户的技能和兴趣筛选适合的项目方向，形成初始建议；随后由模型生成包含项目概要、MVP 功能、推广策略、时间表和收入预估的路线图。
+13.支持可插拔的模型提供方，便于切换或比较不同 LLM。
+14.邮件与通知服务
+15.使用 SendGrid 或 Telegram Bot 给用户发送生成的路线图或更新提醒。
+16.支持每日/每周推送副业趋势或新模板，增强用户粘性。
+下图描述了高层次的数据流（文字说明）：
+1.用户在前端填写问卷。
+2.前端调用后端 API，传递用户信息。
+3.后端根据模板构建 prompt 并调用 LLM API，生成路线图内容。
+4.后端将结果保存至数据库，并返回给前端；同时触发邮件/消息推送。
+5.前端渲染生成的路线图，并允许用户下载为 PDF 或复制。
+前端页面与原型设计
+1. 登录/注册页面
+提供邮箱、第三方账号登录方式，可通过 Supabase Auth 实现；未登录用户仅能体验免费版。
+2. 问卷输入页面
+让用户输入以下字段：
+字段	描述
+主要技能	编程、设计、市场营销等
+兴趣领域	教育、游戏、健康等
+可投入时间	每周小时数或每天小时数
+初始预算	可投入的资金范围
+期望收入目标	目标副业每月收入
+所有字段均为必填或半必填，用下拉框/单选按钮简化操作。
+3. 结果展示页面
+显示生成的路线图，包括：
+项目推荐列表：每个项目包含名称、简介、市场机会。
+MVP 功能：建议先实现的核心功能列表。
+推广策略：适合的渠道和方法。
+时间表：分阶段的行动计划。
+预期收入区间：根据模型估算的收入范围。
+页面提供“保存/下载”按钮，将路线图导出为 PDF 或保存到账号；另有“生成新路线图”按钮供用户重新生成。
+4. 个人中心/订阅管理
+用户可以查看历史生成的路线图、更新个人资料、管理订阅计划和支付方式。
+后端 API 设计
+以下为建议的 API 端点：
+方法	路径	描述
+POST	/api/roadmap	生成路线图，接收问卷数据，返回结果
+GET	/api/roadmap/:id	获取某条路线图记录
+POST	/api/subscribe	创建/更新用户订阅
+GET	/api/user	获取当前登录用户信息
+接口返回 JSON，包括状态码、消息和数据字段。需要鉴权的接口应检查用户 Token。
+数据模型设计
+使用关系型数据库建模：
+User：id、email、name、created_at、subscription_status 等。
+Roadmap：id、user_id (外键)、input_data (JSON)、output_data (JSON)、created_at 等。
+Subscription：id、user_id、plan、status、started_at、expires_at。
+后期可增加 Feedback 表用于用户评分和改进提示。
+MVP 开发流程
+参考 AI MVP 开发指南，建议遵循以下迭代步骤[3][4]：
+1.确定问题与验证假设（第 1 周）：利用问卷和快速访谈验证用户确实需要个性化副业路线图，并确定 MVP 假设。
+2.定义最小功能（第 2 周）：锁定核心功能——生成路线图；不开发复杂的多语言、协作功能。
+3.准备数据与模板（第 2 周）：收集副业案例和模板，设计 prompt 模板，创建有限的数据集以指导模型生成。
+4.前端搭建与 UI 设计（第 3 周）：用 Figma 快速绘制界面，通过 Tailwind 和 shadcn/ui 实现问卷页和结果页[5]。
+5.后端实现与模型集成（第 3–4 周）：搭建 API 服务并集成 LLM；先从简单的规则或半自动输出开始，逐步完善自动化[2]。
+6.内部测试与反馈（第 5 周）：邀请种子用户试用，收集数据，衡量生成路线图的实用度和准确度[6]。
+7.上线试运营（第 6 周）：部署到 Vercel，开放订阅；监控用户反馈并修复问题。
+8.迭代优化（第 7 周起）：根据反馈优化 UI、提示词和算法，增加支付功能、历史记录和模板市场等附加功能。
+结论
+上述架构和流程旨在帮助你迅速启动“AI 副业路线图生成器”，通过明确的技术栈选择和系统设计，结合 LLM 提供的强大生成能力，实现快速验证和迭代。借助 AI 工具自动完成市场调研、设计与开发，可显著压缩从想法到 MVP 的时间[1]。希望此设计文档能指导你在 GitHub 项目中开展开发工作。
+
+[1] [5] Build Startups 5x Faster: AI-Powered Product Roadmap | by AlterSquare | Nov, 2025 | Medium
+https://altersquare.medium.com/build-startups-5x-faster-ai-powered-product-roadmap-4bdc33ddc408
+[2] [3] [4] [6] How to Create an AI MVP: A Full Development Guide - DEV Community
+https://dev.to/raftlabs/how-to-create-an-ai-mvp-a-full-development-guide-19hb
